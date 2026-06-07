@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InvestEd Pro - School Edition</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; }
+        .gradient-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+        .lesson-item { border-left: 4px solid #667eea; padding: 14px; background: white; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .lesson-item:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .lesson-item.completed { border-left-color: #10b981; background: #f0fdf4; }
+        .lesson-item.locked { opacity: 0.6; cursor: not-allowed; border-left-color: #d1d5db; background: #f9fafb; }
+        .grade-A { background: #dcfce7; color: #166534; }
+        .grade-B { background: #dbeafe; color: #1e40af; }
+        .grade-C { background: #fef3c7; color: #b45309; }
+        .grade-F { background: #fee2e2; color: #991b1b; }
+        .modal { background: white; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+        .table-striped tbody tr:nth-child(odd) { background-color: #f9fafb; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #7f1d1d; }
+        .badge-locked { background: #e5e7eb; color: #4b5563; }
+        .unit-card { border-radius: 12px; padding: 20px; margin-bottom: 16px; transition: all 0.3s; }
+        .unit-card.locked { opacity: 0.6; background: #f9fafb; border: 2px dashed #d1d5db; }
+        .unit-card.unlocked { background: #f0f9ff; border: 2px solid #93c5fd; cursor: pointer; }
+        .unit-card.completed { background: #f0fdf4; border: 2px solid #86efac; }
+        .progress-bar { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.3s; }
+        .grade-display { font-size: 24px; font-weight: bold; }
+        @media (max-width: 768px) {
+            .hidden-mobile { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        const { useState, useEffect } = React;
+        const e = React.createElement;
+
+        // Demo Data
+        const demoClasses = [
+            {id: 1, name: 'Period 1 Finance', teacher: 'Mr. Smith', students: 28, avgGrade: 87, code: 'FIN001'},
+            {id: 2, name: 'Period 3 Economics', teacher: 'Ms. Johnson', students: 32, avgGrade: 84, code: 'ECO003'},
+            {id: 3, name: 'Period 5 Business', teacher: 'Mr. Williams', students: 26, avgGrade: 91, code: 'BUS005'}
+        ];
+
+        const demoStudents = [
+            {id: 1, name: 'John Doe', email: 'john@school.edu', grade: 'A', progress: 85, lastActive: 'Today'},
+            {id: 2, name: 'Jane Smith', email: 'jane@school.edu', grade: 'A', progress: 92, lastActive: 'Today'},
+            {id: 3, name: 'Bob Johnson', email: 'bob@school.edu', grade: 'B', progress: 78, lastActive: 'Yesterday'},
+            {id: 4, name: 'Alice Williams', email: 'alice@school.edu', grade: 'A', progress: 88, lastActive: '2 days ago'},
+            {id: 5, name: 'Charlie Brown', email: 'charlie@school.edu', grade: 'C', progress: 62, lastActive: '3 days ago'}
+        ];
+
+        // Complete 82-lesson curriculum with prerequisites
+        const curriculum = [
+            {
+                id: 1,
+                name: 'Unit 1: Financial Literacy',
+                description: 'Introduction to Personal Finance',
+                lessons: 4,
+                prerequisite: null,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 1, name: 'Introduction to Personal Finance', questions: 5 },
+                    { id: 2, name: 'Needs vs. Wants', questions: 4 },
+                    { id: 3, name: 'Budgeting Basics', questions: 5 },
+                    { id: 4, name: 'Saving & Emergency Funds', questions: 5 }
+                ]
+            },
+            {
+                id: 2,
+                name: 'Unit 2: Banking & Credit',
+                description: 'How Banks Work and Credit Systems',
+                lessons: 4,
+                prerequisite: 1,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 5, name: 'How Banks Work', questions: 5 },
+                    { id: 6, name: 'Checking & Savings Accounts', questions: 4 },
+                    { id: 7, name: 'Credit Scores', questions: 5 },
+                    { id: 8, name: 'Loans & Interest', questions: 5 }
+                ]
+            },
+            {
+                id: 3,
+                name: 'Unit 3: Introduction to Investing',
+                description: 'Basics of Investment and Compound Interest',
+                lessons: 4,
+                prerequisite: 2,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 9, name: 'What is Investing?', questions: 5 },
+                    { id: 10, name: 'Risk vs. Reward', questions: 4 },
+                    { id: 11, name: 'Compound Interest', questions: 5 },
+                    { id: 12, name: 'Investment Accounts', questions: 5 }
+                ]
+            },
+            {
+                id: 4,
+                name: 'Unit 4: Stock Market Basics',
+                description: 'Understanding Stocks and Exchanges',
+                lessons: 6,
+                prerequisite: 3,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 13, name: 'History of Stock Market', questions: 4 },
+                    { id: 14, name: 'How Stocks Work', questions: 5 },
+                    { id: 15, name: 'Stock Exchanges', questions: 4 },
+                    { id: 16, name: 'IPOs', questions: 5 },
+                    { id: 17, name: 'Bull vs. Bear Markets', questions: 5 },
+                    { id: 18, name: 'Market Orders vs. Limit Orders', questions: 5 }
+                ]
+            },
+            {
+                id: 5,
+                name: 'Unit 5: Understanding Companies',
+                description: 'Reading Company Profiles and Financial Metrics',
+                lessons: 4,
+                prerequisite: 4,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 19, name: 'Reading Company Profiles', questions: 5 },
+                    { id: 20, name: 'Revenue, Profit, Expenses', questions: 5 },
+                    { id: 21, name: 'Market Capitalization', questions: 4 },
+                    { id: 22, name: 'Competitive Advantages', questions: 5 }
+                ]
+            },
+            {
+                id: 6,
+                name: 'Unit 6: Stock Research',
+                description: 'Fundamental and Technical Analysis',
+                lessons: 5,
+                prerequisite: 5,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 23, name: 'Fundamental Analysis', questions: 5 },
+                    { id: 24, name: 'Technical Analysis', questions: 5 },
+                    { id: 25, name: 'Earnings Reports', questions: 4 },
+                    { id: 26, name: 'P/E Ratio', questions: 5 },
+                    { id: 27, name: 'Dividend Stocks', questions: 5 }
+                ]
+            },
+            {
+                id: 7,
+                name: 'Unit 7: Portfolio Basics',
+                description: 'Building Diversified Portfolios',
+                lessons: 9,
+                prerequisite: 6,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 28, name: 'Diversification', questions: 5 },
+                    { id: 29, name: 'Asset Allocation', questions: 5 },
+                    { id: 30, name: 'Portfolio Risk', questions: 4 },
+                    { id: 31, name: 'Growth Investing', questions: 5 },
+                    { id: 32, name: 'Value Investing', questions: 5 },
+                    { id: 33, name: 'Income Investing', questions: 4 },
+                    { id: 34, name: 'ESG Investing', questions: 5 },
+                    { id: 35, name: 'Mock Portfolio Assignment', questions: 0 },
+                    { id: 36, name: 'Semester 1 Review Project', questions: 0 }
+                ]
+            },
+            {
+                id: 8,
+                name: 'Unit 8: Funds & ETFs',
+                description: 'Mutual Funds and Exchange Traded Funds',
+                lessons: 4,
+                prerequisite: 7,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 37, name: 'Introduction to Mutual Funds', questions: 5 },
+                    { id: 38, name: 'ETFs Explained', questions: 5 },
+                    { id: 39, name: 'Expense Ratios', questions: 4 },
+                    { id: 40, name: 'Choosing Funds', questions: 5 }
+                ]
+            },
+            {
+                id: 9,
+                name: 'Unit 9: Bonds & Fixed Income',
+                description: 'Understanding Bonds and Fixed Income Securities',
+                lessons: 4,
+                prerequisite: 8,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 41, name: 'Bond Basics', questions: 5 },
+                    { id: 42, name: 'Types of Bonds', questions: 5 },
+                    { id: 43, name: 'Bond Yields and Pricing', questions: 4 },
+                    { id: 44, name: 'Credit Risk', questions: 5 }
+                ]
+            },
+            {
+                id: 10,
+                name: 'Unit 10: Real Estate Investing',
+                description: 'Real Estate as an Investment Asset',
+                lessons: 4,
+                prerequisite: 9,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 45, name: 'Real Estate Market Overview', questions: 5 },
+                    { id: 46, name: 'Rental Properties', questions: 5 },
+                    { id: 47, name: 'REITs', questions: 4 },
+                    { id: 48, name: 'Real Estate Financing', questions: 5 }
+                ]
+            },
+            {
+                id: 11,
+                name: 'Unit 11: Alternative Investments',
+                description: 'Commodities, Crypto, and Other Assets',
+                lessons: 4,
+                prerequisite: 10,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 49, name: 'Commodities Investing', questions: 5 },
+                    { id: 50, name: 'Introduction to Cryptocurrency', questions: 5 },
+                    { id: 51, name: 'Precious Metals', questions: 4 },
+                    { id: 52, name: 'Alternative Investment Risk', questions: 5 }
+                ]
+            },
+            {
+                id: 12,
+                name: 'Unit 12: Economics & Markets',
+                description: 'Macroeconomics and Market Principles',
+                lessons: 5,
+                prerequisite: 11,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 53, name: 'Supply and Demand', questions: 5 },
+                    { id: 54, name: 'Inflation and Deflation', questions: 5 },
+                    { id: 55, name: 'Interest Rates', questions: 4 },
+                    { id: 56, name: 'Economic Indicators', questions: 5 },
+                    { id: 57, name: 'Market Cycles', questions: 5 }
+                ]
+            },
+            {
+                id: 13,
+                name: 'Unit 13: Advanced Strategies',
+                description: 'Options, Shorting, and Advanced Techniques',
+                lessons: 5,
+                prerequisite: 12,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 58, name: 'Options Basics', questions: 5 },
+                    { id: 59, name: 'Calls and Puts', questions: 5 },
+                    { id: 60, name: 'Short Selling', questions: 4 },
+                    { id: 61, name: 'Hedging Strategies', questions: 5 },
+                    { id: 62, name: 'Risk Management', questions: 5 }
+                ]
+            },
+            {
+                id: 14,
+                name: 'Unit 14: Retirement & Wealth',
+                description: 'Planning for Long-Term Wealth',
+                lessons: 4,
+                prerequisite: 13,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 63, name: '401k and IRAs', questions: 5 },
+                    { id: 64, name: 'Retirement Planning', questions: 5 },
+                    { id: 65, name: 'Tax-Advantaged Accounts', questions: 4 },
+                    { id: 66, name: 'Estate Planning', questions: 5 }
+                ]
+            },
+            {
+                id: 15,
+                name: 'Unit 15: Investment Simulation',
+                description: 'Practice Trading with Virtual Money',
+                lessons: 5,
+                prerequisite: 14,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 67, name: 'Simulator Setup', questions: 0 },
+                    { id: 68, name: 'Building Your Portfolio', questions: 0 },
+                    { id: 69, name: 'Monitoring Performance', questions: 0 },
+                    { id: 70, name: 'Simulation Analysis', questions: 5 },
+                    { id: 71, name: 'Sim Performance Project', questions: 0 }
+                ]
+            },
+            {
+                id: 16,
+                name: 'Unit 16: Capstone Project',
+                description: 'Final Investment Analysis Project',
+                lessons: 1,
+                prerequisite: 15,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 72, name: 'Investment Proposal Capstone', questions: 0 }
+                ]
+            },
+            {
+                id: 17,
+                name: 'Unit 17: Money Lending & Private Finance',
+                description: 'Understanding Lending and Private Financing',
+                lessons: 10,
+                prerequisite: 16,
+                passGrade: 70,
+                lessons_list: [
+                    { id: 73, name: 'History of Lending', questions: 5 },
+                    { id: 74, name: 'How Loans Work', questions: 5 },
+                    { id: 75, name: 'Types of Lenders', questions: 4 },
+                    { id: 76, name: 'Private Money Lending', questions: 5 },
+                    { id: 77, name: 'Real Estate Private Lending', questions: 5 },
+                    { id: 78, name: 'Peer-to-Peer Lending', questions: 4 },
+                    { id: 79, name: 'Evaluating Borrowers', questions: 5 },
+                    { id: 80, name: 'Interest Rates & Risk Pricing', questions: 5 },
+                    { id: 81, name: 'Loan Documents', questions: 5 },
+                    { id: 82, name: 'Ethics & Regulations', questions: 5 }
+                ]
+            }
+        ];
+
+        // Helper functions
+        const getLetterGrade = (percentage) => {
+            if (percentage >= 90) return 'A';
+            if (percentage >= 80) return 'B';
+            if (percentage >= 70) return 'C';
+            return 'F';
+        };
+
+        const getGradeColor = (grade) => {
+            const colors = { 'A': '#10b981', 'B': '#3b82f6', 'C': '#f59e0b', 'F': '#ef4444' };
+            return colors[grade] || '#6b7280';
+        };
+
+        // Main App
+        const SchoolApp = () => {
+            const [userType, setUserType] = useState(null);
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [currentUser, setCurrentUser] = useState(null);
+            const [view, setView] = useState('dashboard');
+            const [selectedClass, setSelectedClass] = useState(null);
+            const [selectedUnit, setSelectedUnit] = useState(null);
+            const [unitGrades, setUnitGrades] = useState(() => {
+                const saved = localStorage.getItem('unitGrades');
+                return saved ? JSON.parse(saved) : {};
+            });
+            const [schoolSettings, setSchoolSettings] = useState({
+                name: 'Lincoln High School',
+                logo: '🏫',
+                color: '#667eea',
+                timezone: 'EST',
+                year: '2024-2025'
+            });
+
+            // Save unit grades to localStorage
+            useEffect(() => {
+                localStorage.setItem('unitGrades', JSON.stringify(unitGrades));
+            }, [unitGrades]);
+
+            const checkUnitUnlocked = (unit) => {
+                if (!unit.prerequisite) return true;
+                const prereqUnit = curriculum.find(u => u.id === unit.prerequisite);
+                const prereqGrade = unitGrades[unit.prerequisite];
+                return prereqGrade && prereqGrade.percentage >= 70;
+            };
+
+            const handleUnitQuiz = (unitId) => {
+                // Simulate quiz taking - random score between 70-100
+                const score = Math.floor(Math.random() * 31) + 70;
+                setUnitGrades(prev => ({
+                    ...prev,
+                    [unitId]: { percentage: score, letter: getLetterGrade(score), date: new Date().toLocaleDateString() }
+                }));
+                setSelectedUnit(null);
+            };
+
+            const calculateOverallGrade = () => {
+                const completedUnits = Object.values(unitGrades).filter(g => g.percentage >= 70);
+                if (Object.keys(unitGrades).length === 0) return { percentage: 0, letter: 'N/A', completed: 0 };
+                const avgPercentage = Math.round(
+                    Object.values(unitGrades).reduce((sum, g) => sum + g.percentage, 0) / Object.keys(unitGrades).length
+                );
+                return {
+                    percentage: avgPercentage,
+                    letter: getLetterGrade(avgPercentage),
+                    completed: completedUnits.length,
+                    total: curriculum.length
+                };
+            };
+
+            const LoginPage = () => e('div', {className: 'min-h-screen gradient-primary flex items-center justify-center p-4'},
+                e('div', {className: 'bg-white rounded-2xl shadow-2xl max-w-md w-full p-8'},
+                    e('div', {className: 'text-center mb-8'},
+                        e('h1', {className: 'text-4xl font-bold mb-2'}, '📚 InvestEd Pro'),
+                        e('p', {className: 'text-gray-600'}, 'School Edition - Complete Investment Curriculum')
+                    ),
+
+                    e('div', {className: 'space-y-3 mb-8'},
+                        e('button', {
+                            onClick: () => {
+                                setUserType('admin');
+                                setCurrentUser({name: 'Dr. Sarah Admin', email: 'admin@school.edu', role: 'School Admin'});
+                                setIsLoggedIn(true);
+                            },
+                            className: 'w-full p-3 gradient-primary text-white rounded-lg hover:opacity-90 font-bold'
+                        }, '👨‍💼 Admin (Demo)'),
+                        e('button', {
+                            onClick: () => {
+                                setUserType('teacher');
+                                setCurrentUser({name: 'Mr. Smith', email: 'smith@school.edu', role: 'Teacher'});
+                                setIsLoggedIn(true);
+                            },
+                            className: 'w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold'
+                        }, '👨‍🏫 Teacher (Demo)'),
+                        e('button', {
+                            onClick: () => {
+                                setUserType('student');
+                                setCurrentUser({name: 'John Doe', email: 'john@school.edu', role: 'Student'});
+                                setIsLoggedIn(true);
+                            },
+                            className: 'w-full p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold'
+                        }, '👨‍🎓 Student (Demo)'),
+                        e('button', {
+                            onClick: () => {
+                                setUserType('parent');
+                                setCurrentUser({name: 'Mary Doe', email: 'mary@email.com', role: 'Parent'});
+                                setIsLoggedIn(true);
+                            },
+                            className: 'w-full p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold'
+                        }, '👩‍👧 Parent (Demo)')
+                    ),
+
+                    e('div', {className: 'bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800'},
+                        e('p', {className: 'font-bold mb-2'}, '🔐 Demo Mode'),
+                        e('p', {}, 'Click any role above to explore. This is a demonstration platform.')
+                    )
+                )
+            );
+
+            const AdminDashboard = () => e('div', {className: 'space-y-6'},
+                e('div', {className: 'gradient-primary text-white rounded-2xl p-8'},
+                    e('h1', {className: 'text-4xl font-bold mb-2'}, `${schoolSettings.name} - Admin Dashboard`),
+                    e('p', {}, 'School Year: ' + schoolSettings.year)
+                ),
+
+                e('div', {className: 'grid md:grid-cols-4 gap-4'},
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '👥 Total Users'),
+                        e('p', {className: 'text-3xl font-bold text-purple-600'}, '312'),
+                        e('p', {className: 'text-xs text-gray-500 mt-1'}, '45 teachers, 250 students, 17 parents')
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '🎓 Classes'),
+                        e('p', {className: 'text-3xl font-bold text-blue-600'}, '24'),
+                        e('p', {className: 'text-xs text-gray-500 mt-1'}, 'Across all departments')
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '📊 Avg Grade'),
+                        e('p', {className: 'text-3xl font-bold text-green-600'}, '86%'),
+                        e('p', {className: 'text-xs text-gray-500 mt-1'}, 'School-wide average')
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '📈 Engagement'),
+                        e('p', {className: 'text-3xl font-bold text-orange-600'}, '94%'),
+                        e('p', {className: 'text-xs text-gray-500 mt-1'}, 'Active this week')
+                    )
+                ),
+
+                e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                    e('h3', {className: 'text-xl font-bold mb-4'}, '👥 Teachers'),
+                    e('table', {className: 'w-full text-sm'},
+                        e('thead', {},
+                            e('tr', {className: 'border-b'},
+                                e('th', {className: 'text-left p-3'}, 'Name'),
+                                e('th', {className: 'text-left p-3'}, 'Classes'),
+                                e('th', {className: 'text-left p-3'}, 'Students'),
+                                e('th', {className: 'text-left p-3'}, 'Avg Grade'),
+                                e('th', {className: 'text-left p-3'}, 'Status')
+                            )
+                        ),
+                        e('tbody', {},
+                            demoClasses.map(cls =>
+                                e('tr', {key: cls.id, className: 'border-b hover:bg-gray-50'},
+                                    e('td', {className: 'p-3'}, cls.teacher),
+                                    e('td', {className: 'p-3'}, '1'),
+                                    e('td', {className: 'p-3'}, cls.students),
+                                    e('td', {className: 'p-3'}, cls.avgGrade + '%'),
+                                    e('td', {className: 'p-3'}, e('span', {className: 'badge badge-success'}, 'Active'))
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+
+            const TeacherDashboard = () => e('div', {className: 'space-y-6'},
+                e('div', {className: 'gradient-primary text-white rounded-2xl p-8'},
+                    e('h1', {className: 'text-4xl font-bold mb-2'}, `Welcome, ${currentUser.name}`),
+                    e('p', {}, 'Manage your classes and track student progress')
+                ),
+
+                e('div', {className: 'grid md:grid-cols-3 gap-4'},
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '🎓 Classes'),
+                        e('p', {className: 'text-3xl font-bold'}, demoClasses.length),
+                        e('p', {className: 'text-xs text-gray-500 mt-1'}, 'Total classes teaching')
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '👥 Students'),
+                        e('p', {className: 'text-3xl font-bold'}, demoClasses.reduce((sum, c) => sum + c.students, 0)),
+                        e('p', {className: 'text-xs text-gray-500 mt-1'}, 'Total across all classes')
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '📊 Avg Grade'),
+                        e('p', {className: 'text-3xl font-bold'}, Math.round(demoClasses.reduce((sum, c) => sum + c.avgGrade, 0) / demoClasses.length) + '%'),
+                        e('p', {className: 'text-xs text-gray-500 mt-1'}, 'School-wide average')
+                    )
+                ),
+
+                e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                    e('h3', {className: 'text-xl font-bold mb-4'}, 'My Classes'),
+                    e('div', {className: 'space-y-3'},
+                        ...demoClasses.map(cls =>
+                            e('div', {
+                                key: cls.id,
+                                onClick: () => { setSelectedClass(cls); setView('class-detail'); },
+                                className: 'p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg hover:shadow-md cursor-pointer border-l-4 border-purple-600'
+                            },
+                                e('div', {className: 'flex justify-between items-start'},
+                                    e('div', {},
+                                        e('h4', {className: 'font-bold'}, cls.name),
+                                        e('p', {className: 'text-sm text-gray-600'}, `${cls.students} students • Code: ${cls.code}`)
+                                    ),
+                                    e('div', {className: 'text-right'},
+                                        e('p', {className: 'text-lg font-bold text-purple-600'}, cls.avgGrade + '%'),
+                                        e('p', {className: 'text-xs text-gray-500'}, 'Class average')
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+
+            const ClassDetail = () => selectedClass && e('div', {className: 'space-y-6'},
+                e('div', {className: 'flex items-center gap-4 mb-6'},
+                    e('button', {
+                        onClick: () => { setSelectedClass(null); setView('dashboard'); },
+                        className: 'px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg font-bold'
+                    }, '← Back'),
+                    e('h1', {className: 'text-3xl font-bold'}, selectedClass.name)
+                ),
+
+                e('div', {className: 'grid md:grid-cols-4 gap-4'},
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '👥 Students'),
+                        e('p', {className: 'text-3xl font-bold'}, selectedClass.students)
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '📊 Avg Grade'),
+                        e('p', {className: 'text-3xl font-bold'}, selectedClass.avgGrade + '%')
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, 'Class Code'),
+                        e('p', {className: 'text-3xl font-bold text-purple-600'}, selectedClass.code)
+                    ),
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('p', {className: 'text-gray-600'}, '📈 Engagement'),
+                        e('p', {className: 'text-3xl font-bold'}, '92%')
+                    )
+                ),
+
+                e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                    e('h3', {className: 'text-xl font-bold mb-4'}, '👨‍🎓 Student List'),
+                    e('table', {className: 'w-full text-sm'},
+                        e('thead', {},
+                            e('tr', {className: 'border-b'},
+                                e('th', {className: 'text-left p-3'}, 'Name'),
+                                e('th', {className: 'text-left p-3'}, 'Email'),
+                                e('th', {className: 'text-left p-3'}, 'Grade'),
+                                e('th', {className: 'text-left p-3'}, 'Progress'),
+                                e('th', {className: 'text-left p-3'}, 'Last Active')
+                            )
+                        ),
+                        e('tbody', {},
+                            demoStudents.map(student =>
+                                e('tr', {key: student.id, className: 'border-b hover:bg-gray-50'},
+                                    e('td', {className: 'p-3 font-bold'}, student.name),
+                                    e('td', {className: 'p-3 text-gray-600'}, student.email),
+                                    e('td', {className: 'p-3'}, e('span', {className: 'badge grade-' + student.grade.toLowerCase()}, student.grade)),
+                                    e('td', {className: 'p-3'}, e('div', {className: 'w-20 bg-gray-200 rounded-full h-2'},
+                                        e('div', {className: 'gradient-primary h-2 rounded-full', style: {width: student.progress + '%'}})
+                                    )),
+                                    e('td', {className: 'p-3 text-gray-600'}, student.lastActive)
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+
+            const StudentDashboard = () => {
+                const overallGrade = calculateOverallGrade();
+                return e('div', {className: 'space-y-6'},
+                    selectedUnit ? e('div', {className: 'space-y-6'},
+                        e('div', {className: 'flex items-center gap-4 mb-6'},
+                            e('button', {
+                                onClick: () => setSelectedUnit(null),
+                                className: 'px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg font-bold'
+                            }, '← Back')
+                        ),
+                        e('div', {className: 'bg-white rounded-xl p-8 shadow-sm'},
+                            e('h2', {className: 'text-3xl font-bold mb-4'}, selectedUnit.name),
+                            e('p', {className: 'text-gray-600 mb-6'}, selectedUnit.description),
+                            e('div', {className: 'mb-6'},
+                                e('h3', {className: 'font-bold mb-3'}, '📖 Lessons in this unit:'),
+                                e('ul', {className: 'space-y-2'},
+                                    ...selectedUnit.lessons_list.map(lesson =>
+                                        e('li', {key: lesson.id, className: 'p-2 bg-gray-50 rounded'}, `${lesson.name}`)
+                                    )
+                                )
+                            ),
+                            e('button', {
+                                onClick: () => handleUnitQuiz(selectedUnit.id),
+                                className: 'w-full p-4 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-lg'
+                            }, '✅ Complete Unit & Take Quiz')
+                        )
+                    ) : e('div', {className: 'space-y-6'},
+                        e('div', {className: 'gradient-primary text-white rounded-2xl p-8'},
+                            e('h1', {className: 'text-4xl font-bold mb-2'}, `Welcome, ${currentUser.name}! 🎓`),
+                            e('p', {}, 'Complete your investment education with 82 lessons')
+                        ),
+
+                        e('div', {className: 'grid md:grid-cols-4 gap-4'},
+                            e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                                e('p', {className: 'text-gray-600'}, '📊 Overall Grade'),
+                                e('p', {className: 'text-3xl font-bold', style: {color: getGradeColor(overallGrade.letter)}}, overallGrade.percentage + '%'),
+                                e('p', {className: 'text-xs text-gray-500 mt-1'}, overallGrade.letter)
+                            ),
+                            e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                                e('p', {className: 'text-gray-600'}, '✅ Units Passed'),
+                                e('p', {className: 'text-3xl font-bold text-green-600'}, overallGrade.completed),
+                                e('p', {className: 'text-xs text-gray-500 mt-1'}, `of ${overallGrade.total} units`)
+                            ),
+                            e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                                e('p', {className: 'text-gray-600'}, '🔥 Streak'),
+                                e('p', {className: 'text-3xl font-bold text-orange-600'}, '12'),
+                                e('p', {className: 'text-xs text-gray-500 mt-1'}, 'days active')
+                            ),
+                            e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                                e('p', {className: 'text-gray-600'}, '💰 Trades'),
+                                e('p', {className: 'text-3xl font-bold text-blue-600'}, '47'),
+                                e('p', {className: 'text-xs text-gray-500 mt-1'}, 'in simulator')
+                            )
+                        ),
+
+                        e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                            e('h3', {className: 'text-xl font-bold mb-6'}, '📚 Course Progress - Pass Requirements: 70%+'),
+                            e('div', {className: 'space-y-3'},
+                                ...curriculum.map(unit => {
+                                    const isUnlocked = checkUnitUnlocked(unit);
+                                    const gradeData = unitGrades[unit.id];
+                                    return e('div', {
+                                        key: unit.id,
+                                        onClick: () => isUnlocked && setSelectedUnit(unit),
+                                        className: `unit-card ${!isUnlocked ? 'locked' : (gradeData ? 'completed' : 'unlocked')}`
+                                    },
+                                        e('div', {className: 'flex justify-between items-start'},
+                                            e('div', {className: 'flex-1'},
+                                                e('h4', {className: 'font-bold text-lg'}, unit.name),
+                                                e('p', {className: 'text-sm text-gray-600'}, unit.description),
+                                                e('p', {className: 'text-xs text-gray-500 mt-1'}, `${unit.lessons} lessons`)
+                                            ),
+                                            e('div', {className: 'text-right'},
+                                                gradeData ?
+                                                    e('div', {},
+                                                        e('p', {className: 'grade-display', style: {color: getGradeColor(gradeData.letter)}}, gradeData.letter),
+                                                        e('p', {className: 'text-sm font-bold'}, gradeData.percentage + '%'),
+                                                        e('p', {className: 'text-xs text-gray-500'}, gradeData.date)
+                                                    )
+                                                : isUnlocked ?
+                                                    e('div', {},
+                                                        e('span', {className: 'badge badge-warning'}, 'Ready to Start')
+                                                    )
+                                                : e('div', {},
+                                                    e('span', {className: 'badge badge-locked'}, '🔒 Locked')
+                                                )
+                            )
+                        )
+                                );
+                                })
+                            )
+                        )
+                    )
+                );
+            };
+
+            const ParentPortal = () => {
+                const overallGrade = calculateOverallGrade();
+                return e('div', {className: 'space-y-6'},
+                    e('div', {className: 'gradient-primary text-white rounded-2xl p-8'},
+                        e('h1', {className: 'text-4xl font-bold mb-2'}, 'Parent Portal'),
+                        e('p', {}, 'Monitor your child\\'s progress in InvestEd Pro')
+                    ),
+
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm mb-6'},
+                        e('h3', {className: 'text-xl font-bold mb-4'}, '👨‍👧 Your Child'),
+                        e('p', {}, 'John Doe (Grade 10)'),
+                        e('p', {className: 'text-sm text-gray-600'}, 'Lincoln High School - Mr. Smith\\'s Period 1 Finance Class')
+                    ),
+
+                    e('div', {className: 'grid md:grid-cols-3 gap-4'},
+                        e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                            e('p', {className: 'text-gray-600'}, '📊 Course Grade'),
+                            e('p', {className: 'text-3xl font-bold', style: {color: getGradeColor(overallGrade.letter)}}, overallGrade.letter),
+                            e('p', {className: 'text-sm text-gray-600'}, overallGrade.percentage + '% Average')
+                        ),
+                        e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                            e('p', {className: 'text-gray-600'}, '✅ Units Passed'),
+                            e('p', {className: 'text-3xl font-bold text-green-600'}, overallGrade.completed),
+                            e('p', {className: 'text-sm text-gray-600'}, `of ${overallGrade.total} total`)
+                        ),
+                        e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                            e('p', {className: 'text-gray-600'}, '🎯 Engagement'),
+                            e('p', {className: 'text-3xl font-bold text-orange-600'}, 'Excellent'),
+                            e('p', {className: 'text-sm text-gray-600'}, '12-day active streak')
+                        )
+                    ),
+
+                    e('div', {className: 'bg-white rounded-xl p-6 shadow-sm'},
+                        e('h3', {className: 'text-xl font-bold mb-4'}, '📊 Unit Grades'),
+                        e('div', {className: 'space-y-3 text-sm'},
+                            ...Object.entries(unitGrades).map(([unitId, grade]) => {
+                                const unit = curriculum.find(u => u.id === parseInt(unitId));
+                                return e('div', {key: unitId, className: 'flex justify-between p-3 bg-gray-50 rounded'},
+                                    e('span', {}, unit.name),
+                                    e('span', {className: 'font-bold', style: {color: getGradeColor(grade.letter)}}, grade.letter + ' (' + grade.percentage + '%)')
+                                );
+                            })
+                        )
+                    ),
+
+                    e('div', {className: 'bg-blue-50 border-l-4 border-blue-600 rounded-lg p-6'},
+                        e('h3', {className: 'font-bold mb-2'}, '💬 Contact Teacher'),
+                        e('p', {className: 'text-sm text-gray-700 mb-4'}, 'Have questions about John\\'s progress?'),
+                        e('button', {className: 'px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold'}, 'Email Mr. Smith')
+                    )
+                );
+            };
+
+            if (!isLoggedIn) return e(LoginPage);
+
+            return e('div', {className: 'min-h-screen bg-gray-50'},
+                e('nav', {className: 'bg-white shadow-sm sticky top-0 z-40'},
+                    e('div', {className: 'max-w-7xl mx-auto px-4 py-4 flex justify-between items-center'},
+                        e('div', {className: 'flex items-center gap-3'},
+                            e('span', {className: 'text-3xl'}, schoolSettings.logo),
+                            e('div', {},
+                                e('h1', {className: 'text-xl font-bold'}, 'InvestEd Pro'),
+                                e('p', {className: 'text-xs text-gray-600'}, schoolSettings.name)
+                            )
+                        ),
+                        e('div', {className: 'flex items-center gap-4'},
+                            e('div', {className: 'text-sm'},
+                                e('p', {className: 'font-bold'}, currentUser.name),
+                                e('p', {className: 'text-xs text-gray-600'}, currentUser.role)
+                            ),
+                            e('button', {
+                                onClick: () => { setIsLoggedIn(false); setUserType(null); setSelectedClass(null); },
+                                className: 'px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-bold text-sm'
+                            }, 'Logout')
+                        )
+                    )
+                ),
+
+                e('div', {className: 'max-w-7xl mx-auto px-4 py-8'},
+                    userType === 'admin' && e(AdminDashboard),
+                    userType === 'teacher' && (selectedClass && view === 'class-detail' ? e(ClassDetail) : e(TeacherDashboard)),
+                    userType === 'student' && e(StudentDashboard),
+                    userType === 'parent' && e(ParentPortal)
+                )
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(e(SchoolApp));
+    </script>
+</body>
+</html>
